@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	if (output_file(dbfd, dbheader) == -1) {
+	if (output_file(dbfd, dbheader, NULL) == -1) {
 		printf("Could not write db file\n");
 		close(dbfd);
 		return -1;
