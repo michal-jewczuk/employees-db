@@ -73,11 +73,13 @@ int validate_db_header(int fd, struct dbheader_t **headerOut) {
 	return STATUS_SUCCESS;
 }
 
-int output_file(int fd, struct dbheader_t *header, struct employee_t *employee) {
+int output_file(int fd, struct dbheader_t *header, struct employee_t *employees) {
 	if (fd < 0) {
 		printf("Called with invalid FD\n");
 		return STATUS_ERROR;
 	}
+
+	int emp_count = header->count;
 
 	header->magic = htonl(header->magic);
 	header->version = htons(header->version);
@@ -89,6 +91,67 @@ int output_file(int fd, struct dbheader_t *header, struct employee_t *employee) 
 		perror("write");
 		return STATUS_ERROR;
 	}
+
+	for (int i = 0; i < emp_count; i++) {
+		employees[i].hours = htons(employees[i].hours);
+		if(write(fd, &employees[i], sizeof(struct employee_t)) == -1) {
+			perror("write");
+			return STATUS_ERROR;
+		}
+	}
+
+	return STATUS_SUCCESS;
+}
+
+int read_employees(int fd, struct dbheader_t *header, struct employee_t **employeesOut) {
+	if (fd < 0) {
+		printf("Called with invalid FD\n");
+		return STATUS_ERROR;
+	}
+	
+	int count = header->count;
+	struct employee_t *employees = calloc(count, sizeof(struct employee_t));
+	if (employees == NULL) {
+		printf("Error allocating memory for employees\n");
+		return STATUS_ERROR;
+	}
+
+	if (read(fd, employees, count * sizeof(struct employee_t)) != count * sizeof(struct employee_t)) {
+		perror("read");
+		free(employees);
+		return STATUS_ERROR;
+	}
+
+	for (int i = 0; i < count; i++) {
+		employees[i].hours = htonl(employees[i].hours);
+	}
+
+	*employeesOut = employees;
+	return STATUS_SUCCESS;
+}
+
+int add_employee(struct dbheader_t *header, struct employee_t *employees, char *addstring) {
+	char *name = strtok(addstring, ",");
+	if (name == NULL) {
+		printf("Error parsing employee from input\n");
+		return STATUS_ERROR;
+	}
+
+	char *address = strtok(NULL, ",");
+	if (address == NULL) {
+		printf("Error parsing employee from input\n");
+		return STATUS_ERROR;
+	}
+
+	char *hours = strtok(NULL, ",");
+	if (hours == NULL) {
+		printf("Error parsing employee from input\n");
+		return STATUS_ERROR;
+	}
+
+	strncpy(employees[header->count - 1].name, name, NAME_S);
+	strncpy(employees[header->count - 1].address, address, ADDR_S);
+	employees[header->count - 1].hours = atoi(hours);
 
 	return STATUS_SUCCESS;
 }

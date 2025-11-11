@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdbool.h>
 #include <getopt.h>
 
@@ -10,6 +11,7 @@ void print_usage(char *argv[]) {
 	printf("Usage: %s -n -f <database file>\n", argv[0]);
 	printf("\t -n create new database file\n");
 	printf("\t -f (required) path to database file\n");
+	printf("\t -a <name,address,hours> add new user to database\n");
 
 	return;
 }
@@ -17,17 +19,22 @@ void print_usage(char *argv[]) {
 int main(int argc, char *argv[]) {
 	bool newfile = false;
 	char *filepath = NULL;
+	char *addstring = NULL;
 	int c;
 	int dbfd = -1;
 	struct dbheader_t *dbheader = NULL;
+	struct employee_t *employees = NULL;
 
-	while((c = getopt(argc, argv, "nf:")) != -1) {
+	while((c = getopt(argc, argv, "nf:a:")) != -1) {
 		switch(c) {
 			case 'n':
 				newfile = true;
 				break;
 			case 'f':
 				filepath = optarg;
+				break;
+			case 'a':
+				addstring = optarg;
 				break;
 			case '?':
 				printf("Unknown option -%c\n",  c);
@@ -65,7 +72,25 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	if (output_file(dbfd, dbheader, NULL) == -1) {
+	if (read_employees(dbfd, dbheader, &employees) == STATUS_ERROR) {
+		printf("Error reading employees\n");
+		close(dbfd);
+		return -1;
+	}
+
+	if (addstring) {
+		dbheader->count++;
+		dbheader->filesize = dbheader->filesize + sizeof(struct employee_t);
+		employees = realloc(employees, dbheader->count * sizeof(struct employee_t));
+		if (employees == NULL) {
+			printf("Failed to allocate memory for new employee\n");
+			close(dbfd);
+			return -1;
+		}
+		add_employee(dbheader, employees, addstring);
+	}
+
+	if (output_file(dbfd, dbheader, employees) == STATUS_ERROR) {
 		printf("Could not write db file\n");
 		close(dbfd);
 		return -1;
