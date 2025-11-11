@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
 			printf("Unable to create db file\n");
 			return -1;
 		}
-		if(create_db_header(dbfd, &dbheader) == STATUS_ERROR) {
+		if(create_db_header(&dbheader) == STATUS_ERROR) {
 			printf("Failed to create db header\n");
 			return -1;
 		}
