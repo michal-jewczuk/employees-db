@@ -130,7 +130,12 @@ int read_employees(int fd, struct dbheader_t *header, struct employee_t **employ
 	return STATUS_SUCCESS;
 }
 
-int add_employee(struct dbheader_t *header, struct employee_t *employees, char *addstring) {
+int add_employee(struct dbheader_t *header, struct employee_t **employees, char *addstring) {
+	if (header == NULL || employees == NULL || *employees == NULL || addstring == NULL) {
+		printf("Method got invalid argument\n");
+		return STATUS_ERROR;
+	}
+
 	char *name = strtok(addstring, ",");
 	if (name == NULL) {
 		printf("Error parsing employee from input\n");
@@ -149,10 +154,21 @@ int add_employee(struct dbheader_t *header, struct employee_t *employees, char *
 		return STATUS_ERROR;
 	}
 
-	strncpy(employees[header->count - 1].name, name, NAME_S);
-	strncpy(employees[header->count - 1].address, address, ADDR_S);
-	employees[header->count - 1].hours = atoi(hours);
+	struct employee_t *e = *employees;
+	e = realloc(e, header->filesize);
+	if (e == NULL) {
+		printf("Error allocating memory for new employee\n");
+		return STATUS_ERROR;
+	}
 
+	strncpy(e[header->count].name, name, NAME_S - 1);
+	strncpy(e[header->count].address, address, ADDR_S - 1);
+	e[header->count].hours = atoi(hours);
+
+	header->count++;
+	header->filesize = header->filesize + sizeof(struct employee_t);
+
+	*employees = e;
 	return STATUS_SUCCESS;
 }
 

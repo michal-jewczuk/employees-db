@@ -79,15 +79,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	if (addstring) {
-		dbheader->count++;
-		dbheader->filesize = dbheader->filesize + sizeof(struct employee_t);
-		employees = realloc(employees, dbheader->count * sizeof(struct employee_t));
-		if (employees == NULL) {
-			printf("Failed to allocate memory for new employee\n");
-			close(dbfd);
-			return -1;
-		}
-		add_employee(dbheader, employees, addstring);
+		add_employee(dbheader, &employees, addstring);
 	}
 
 	if (output_file(dbfd, dbheader, employees) == STATUS_ERROR) {
@@ -96,6 +88,8 @@ int main(int argc, char *argv[]) {
 		return -1;
 	}	
 
+	free(dbheader);
+	free(employees);
 	close(dbfd);
 	return 0;
 }
