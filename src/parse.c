@@ -93,7 +93,7 @@ int output_file(int fd, struct dbheader_t *header, struct employee_t *employees)
 	}
 
 	for (int i = 0; i < emp_count; i++) {
-		employees[i].hours = htons(employees[i].hours);
+		employees[i].hours = htonl(employees[i].hours);
 		if(write(fd, &employees[i], sizeof(struct employee_t)) == -1) {
 			perror("write");
 			return STATUS_ERROR;
@@ -123,7 +123,7 @@ int read_employees(int fd, struct dbheader_t *header, struct employee_t **employ
 	}
 
 	for (int i = 0; i < count; i++) {
-		employees[i].hours = htonl(employees[i].hours);
+		employees[i].hours = ntohl(employees[i].hours);
 	}
 
 	*employeesOut = employees;
@@ -161,8 +161,8 @@ int add_employee(struct dbheader_t *header, struct employee_t **employees, char 
 		return STATUS_ERROR;
 	}
 
-	strncpy(e[header->count].name, name, NAME_S - 1);
-	strncpy(e[header->count].address, address, ADDR_S - 1);
+	strncpy(e[header->count].name, name, sizeof(e[header->count].name));
+	strncpy(e[header->count].address, address, sizeof(e[header->count].address));
 	e[header->count].hours = atoi(hours);
 
 	header->count++;
@@ -178,7 +178,27 @@ void list_employees(struct dbheader_t *header, struct employee_t *employees) {
 	}
 
 	for (int i = 0; i < header->count; i++) {
-		printf("[%d] %s,%s,%d\n", i + 1, employees[i].name, employees[i].address, employees[i].hours);
+		printf("[%d] %s,%s,%u\n", i, employees[i].name, employees[i].address, employees[i].hours);
 	}
+}
+
+int search_employee(struct dbheader_t *header, struct employee_t *employees, struct employee_t **emp, char *search) {
+	if (header == NULL || employees == NULL || search == NULL) {
+		return STATUS_ERROR;
+	}
+	
+	struct employee_t e = {0};
+	for (int i = 0; i < header->count; i++) {
+		if (strcmp(employees[i].name, search) == 0) {
+			strncpy(e.name, employees[i].name, sizeof(employees[i].name));
+			strncpy(e.address, employees[i].address, sizeof(employees[i].address));
+			e.hours = employees[i].hours;
+
+			*emp = &e;
+			return STATUS_SUCCESS;
+		}
+	}
+
+	return STATUS_ERROR;
 }
 

@@ -13,6 +13,7 @@ void print_usage(char *argv[]) {
 	printf("\t -f (required) path to database file\n");
 	printf("\t -l list all emloyees\n");
 	printf("\t -a <name,address,hours> add new user to database\n");
+	printf("\t -s <name> search for employee with exact name\n");
 
 	return;
 }
@@ -22,12 +23,13 @@ int main(int argc, char *argv[]) {
 	bool listemployees = false;
 	char *filepath = NULL;
 	char *addstring = NULL;
+	char *search = NULL;
 	int c;
 	int dbfd = -1;
 	struct dbheader_t *dbheader = NULL;
 	struct employee_t *employees = NULL;
 
-	while((c = getopt(argc, argv, "nf:a:l")) != -1) {
+	while((c = getopt(argc, argv, "nf:a:ls:")) != -1) {
 		switch(c) {
 			case 'n':
 				newfile = true;
@@ -40,6 +42,9 @@ int main(int argc, char *argv[]) {
 				break;
 			case 'l':
 				listemployees = true;
+				break;
+			case 's':
+				search = optarg;
 				break;
 			case '?':
 				printf("Unknown option -%c\n",  c);
@@ -89,6 +94,15 @@ int main(int argc, char *argv[]) {
 
 	if (listemployees) {
 		list_employees(dbheader, employees);
+	}
+
+	if (search != NULL) {
+		struct employee_t *emp = NULL;
+		if (search_employee(dbheader, employees, &emp, search) != STATUS_SUCCESS) {
+			printf("Could not find single employee by name: %s\n", search);
+		} else {
+			printf("Employee: name->%s, address->%s, hours->%d\n", emp->name, emp->address, emp->hours);
+		}
 	}
 
 	if (output_file(dbfd, dbheader, employees) == STATUS_ERROR) {

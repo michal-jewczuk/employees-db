@@ -24,6 +24,7 @@ int read_employees(int fd, struct dbheader_t *header, struct employee_t **employ
 int output_file(int fd, struct dbheader_t *header, struct employee_t *employees);
 int add_employee(struct dbheader_t *header, struct employee_t **employees, char *addstring);
 void list_employees(struct dbheader_t *header, struct employee_t *employees);
+int search_employee(struct dbheader_t *header, struct employee_t *employees, struct employee_t **emp, char *search);
 
 #endif
 
