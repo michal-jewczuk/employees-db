@@ -173,6 +173,10 @@ int add_employee(struct dbheader_t *header, struct employee_t **employees, char 
 }
 
 void list_employees(struct dbheader_t *header, struct employee_t *employees) {
+	if (header == NULL || employees == NULL) {
+		return;
+	}
+
 	for (int i = 0; i < header->count; i++) {
 		printf("[%d] %s,%s,%d\n", i + 1, employees[i].name, employees[i].address, employees[i].hours);
 	}
