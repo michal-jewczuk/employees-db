@@ -25,7 +25,42 @@ void print_usage(char *argv[]) {
 	return;
 }
 
-int poll_loop(unsigned short port, struct dbheader_t *dbhdr, struct employee_t *empoloyees) {
+void handle_client_fsm(struct dbheader_t *dbhdr, struct employee_t *employees, clientstate_t *client) {
+    dbproto_hdr_t *hdr = (dbproto_hdr_t*)client->buffer;
+
+    hdr->type = ntohl(hdr->type);
+    hdr->len = ntohs(hdr->len);
+
+    
+    // my version with 2 messages from client
+    if (client->state == STATE_CONNECTED) {
+        printf("client in connected\n");
+        if (hdr->type != MSG_HELLO_REQ || hdr->len != 1) {
+            printf("Did not get MSG_HELLO in HELLO state\n");
+            // TODO send err msg
+        }
+        client->state = STATE_HELLO;
+    }
+
+    if (client->state == STATE_HELLO) {
+        printf("client in hello\n");
+        dbproto_hello_req* hello = (dbproto_hello_req*)&hdr[1];
+        hello->proto = ntohs(hello->proto);
+        if (hello->proto != PROTO_VER) {
+            printf("Protocol mismatch; expected %d, got %d\n", PROTO_VER, hello->proto);
+            // TODO send err msg
+        }
+
+        // TODO send hello resp
+        client->state = STATE_MSG;
+    }
+
+    if (client->state == STATE_MSG) {
+        printf("client in msg\n");
+    }
+}
+
+int poll_loop(unsigned short port, struct dbheader_t *dbhdr, struct employee_t *employees) {
     int listen_fd, conn_fd, freeSlot;
     struct sockaddr_in server_addr, client_addr;
     socklen_t client_len = sizeof(client_addr);
@@ -115,15 +150,16 @@ int poll_loop(unsigned short port, struct dbheader_t *dbhdr, struct employee_t *
                 if (bytes_read <= 0) {
                     close(fd);
                     if (slot == -1) {
-                        printf("Treed to close fd that does not exist?\n");
+                        printf("Tried to close fd that does not exist?\n");
                     } else {
                         clientStates[slot].fd = -1;
                         clientStates[slot].state = STATE_DISCONNECTED;
-                        printf("Client disconnected on error\n");
+                        printf("Client disconnected\n");
                         nfds--;
                     }
                 } else {
-                    printf("Received data from client: %s\n", clientStates[slot].buffer);
+                    printf("got bytes: %ld\n", bytes_read);
+                    handle_client_fsm(dbhdr, employees, &clientStates[slot]);
                 }
             }
         }

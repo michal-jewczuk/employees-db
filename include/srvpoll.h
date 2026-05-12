@@ -3,13 +3,18 @@
 
 #include <poll.h>
 
+#include "parse.h"
+
 #define BUF_SIZE 4096
 #define MAX_CLIENTS 256
 
 typedef enum {
 	STATE_NEW,
 	STATE_CONNECTED,
-	STATE_DISCONNECTED
+	STATE_DISCONNECTED,
+    STATE_HELLO,
+    STATE_MSG,
+    STATE_GOODBYE
 } state_e;
 
 typedef struct {
@@ -21,6 +26,7 @@ typedef struct {
 void init_clients(clientstate_t* states);
 int find_free_slot(clientstate_t* states); 
 int find_slot_by_fd(int fd, clientstate_t* states);
+void handle_client_fsm(struct dbheader_t *dbhdr, struct employee_t *employees, clientstate_t* client);
 
 #endif
 
