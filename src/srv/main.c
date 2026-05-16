@@ -25,34 +25,42 @@ void print_usage(char *argv[]) {
 	return;
 }
 
+void fsm_reply_hello_err(clientstate_t *client, dbproto_hdr_t* hdr) {
+    hdr->type = htonl(MSG_ERROR);
+    hdr->len = htons(0);
+    write(client->fd, hdr, sizeof(dbproto_hdr_t));
+}
+
+void fsm_reply_hello(clientstate_t *client, dbproto_hdr_t* hdr) {
+    hdr->type = htonl(MSG_HELLO_RESP);
+    hdr->len = htons(0);
+    write(client->fd, hdr, sizeof(dbproto_hdr_t));
+}
+
 void handle_client_fsm(struct dbheader_t *dbhdr, struct employee_t *employees, clientstate_t *client) {
     dbproto_hdr_t *hdr = (dbproto_hdr_t*)client->buffer;
 
     hdr->type = ntohl(hdr->type);
     hdr->len = ntohs(hdr->len);
 
-    
-    // my version with 2 messages from client
-    if (client->state == STATE_CONNECTED) {
-        printf("client in connected\n");
+
+    if (client->state == STATE_HELLO) {
+        printf("client in hello\n");
         if (hdr->type != MSG_HELLO_REQ || hdr->len != 1) {
             printf("Did not get MSG_HELLO in HELLO state\n");
             // TODO send err msg
         }
-        client->state = STATE_HELLO;
-    }
-
-    if (client->state == STATE_HELLO) {
-        printf("client in hello\n");
         dbproto_hello_req* hello = (dbproto_hello_req*)&hdr[1];
         hello->proto = ntohs(hello->proto);
         if (hello->proto != PROTO_VER) {
             printf("Protocol mismatch; expected %d, got %d\n", PROTO_VER, hello->proto);
-            // TODO send err msg
+            fsm_reply_hello_err(client, hdr);
+            return;
         }
 
-        // TODO send hello resp
+        fsm_reply_hello(client, hdr);
         client->state = STATE_MSG;
+        printf("Client upgraded to STATE_MSG\n");
     }
 
     if (client->state == STATE_MSG) {
@@ -132,7 +140,8 @@ int poll_loop(unsigned short port, struct dbheader_t *dbhdr, struct employee_t *
             } else {
                 printf("Free slot at: %d\n", freeSlot);
                 clientStates[freeSlot].fd = conn_fd;
-                clientStates[freeSlot].state = STATE_CONNECTED;
+                //clientStates[freeSlot].state = STATE_CONNECTED;
+                clientStates[freeSlot].state = STATE_HELLO;
                 nfds++;
                 printf("Slot %d has fd %d\n", freeSlot, clientStates[freeSlot].fd);
             }
