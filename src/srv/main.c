@@ -37,7 +37,19 @@ void fsm_reply_hello(clientstate_t *client, dbproto_hdr_t* hdr) {
     write(client->fd, hdr, sizeof(dbproto_hdr_t));
 }
 
-void handle_client_fsm(struct dbheader_t *dbhdr, struct employee_t *employees, clientstate_t *client) {
+void fsm_reply_err(clientstate_t *client, dbproto_hdr_t* hdr) {
+    hdr->type = htonl(MSG_ERROR);
+    hdr->len = htons(0);
+    write(client->fd, hdr, sizeof(dbproto_hdr_t));
+}
+
+void fsm_reply_add(clientstate_t *client, dbproto_hdr_t* hdr) {
+    hdr->type = htonl(MSG_EMPLOYEE_ADD_RESP);
+    hdr->len = htons(0);
+    write(client->fd, hdr, sizeof(dbproto_hdr_t));
+}
+
+void handle_client_fsm(struct dbheader_t *dbhdr, struct employee_t **employees, clientstate_t *client, int dbfd) {
     dbproto_hdr_t *hdr = (dbproto_hdr_t*)client->buffer;
 
     hdr->type = ntohl(hdr->type);
@@ -65,10 +77,26 @@ void handle_client_fsm(struct dbheader_t *dbhdr, struct employee_t *employees, c
 
     if (client->state == STATE_MSG) {
         printf("client in msg\n");
+        
+        if (hdr->type == MSG_EMPLOYEE_ADD_REQ) {
+            struct employee_t *employeeptr = {0};
+            dbproto_add_req* add = (dbproto_add_req*)&hdr[1];
+            printf("Received employee: %s\n", add->data);
+            if (add_employee(dbhdr, employees, add->data) != STATUS_SUCCESS) {
+                fsm_reply_err(client, hdr);
+                return;
+            } else {
+                fsm_reply_add(client, hdr);
+                output_file(dbfd, dbhdr, *employees);
+            }
+            return;
+        }
+
+        printf("Did not receive add req yet\n");
     }
 }
 
-int poll_loop(unsigned short port, struct dbheader_t *dbhdr, struct employee_t *employees) {
+int poll_loop(unsigned short port, struct dbheader_t *dbhdr, struct employee_t **employees, int dbfd) {
     int listen_fd, conn_fd, freeSlot;
     struct sockaddr_in server_addr, client_addr;
     socklen_t client_len = sizeof(client_addr);
@@ -168,7 +196,7 @@ int poll_loop(unsigned short port, struct dbheader_t *dbhdr, struct employee_t *
                     }
                 } else {
                     printf("got bytes: %ld\n", bytes_read);
-                    handle_client_fsm(dbhdr, employees, &clientStates[slot]);
+                    handle_client_fsm(dbhdr, employees, &clientStates[slot], dbfd);
                 }
             }
         }
@@ -242,8 +270,11 @@ int main(int argc, char *argv[]) {
 			return -1;
 		}
 	}
+    if(read_employees(dbfd, dbheader, &employees) != STATUS_SUCCESS) {
+        printf("Error reading employees from the file\n");
+    }
 
-    poll_loop(port, dbheader, employees);
+    poll_loop(port, dbheader, employees, dbfd);
 
 	free(dbheader);
 	free(employees);

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -32,8 +33,38 @@ int send_hello(int fd) {
         return STATUS_ERROR;
     }
 
-
     printf("Server connected. Protocol v1.\n");
+    return STATUS_SUCCESS;
+}
+
+int send_create(int fd, char* emplstr) {
+    char buf[4096] = {0};
+    dbproto_hdr_t *hdr = buf;
+    hdr->type = MSG_EMPLOYEE_ADD_REQ;
+    hdr->len = 1;
+
+    dbproto_add_req *add = (dbproto_add_req*)&hdr[1];
+    printf("Before copy\n");
+    strncpy(&add->data, emplstr, sizeof(add->data));
+
+    hdr->type = htonl(hdr->type);
+    hdr->len = htons(hdr->len);
+
+    printf("Sending data of size: %ld | %ld\n", sizeof(emplstr), sizeof(dbproto_add_req));
+    write(fd, buf, sizeof(dbproto_hdr_t) + sizeof(dbproto_add_req));
+
+    read(fd, buf, sizeof(buf));
+    hdr->type = ntohl(hdr->type);
+    hdr->len = ntohs(hdr->len);
+
+    if (hdr->type != MSG_EMPLOYEE_ADD_RESP) {
+        printf("Error adding employee\n");
+        close(fd);
+        return STATUS_ERROR;
+    }
+
+
+    printf("Employee added\n");
     return STATUS_SUCCESS;
 }
 
@@ -85,14 +116,19 @@ int main(int argc, char *argv[]) {
 	}
 
 	if (connect(fd, (struct sockaddr*)&serverInfo, sizeof(serverInfo)) == -1) {
-		perror("connet");
+		perror("connect");
 		close(fd);
 		return -1;
 	}
 
 	if (send_hello(fd) != STATUS_SUCCESS) {
-        close(fd);
         return STATUS_ERROR;
+    }
+
+    if (addarg != NULL) {
+        if (send_create(fd, addarg) != STATUS_SUCCESS) {
+            return STATUS_ERROR;
+        }
     }
 
 	close(fd);

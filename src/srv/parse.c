@@ -98,7 +98,13 @@ int output_file(int fd, struct dbheader_t *header, struct employee_t *employees)
 			perror("write");
 			return STATUS_ERROR;
 		}
+		employees[i].hours = ntohl(employees[i].hours);
 	}
+
+    header->magic = ntohl(header->magic);
+    header->filesize = ntohl(sizeof(struct dbheader_t) + (sizeof(struct employee_t) * emp_count));
+    header->count = ntohs(header->count);
+    header->version = ntohs(header->version);
 
 	return STATUS_SUCCESS;
 }
@@ -131,10 +137,18 @@ int read_employees(int fd, struct dbheader_t *header, struct employee_t **employ
 }
 
 int add_employee(struct dbheader_t *header, struct employee_t **employees, char *addstring) {
-	if (header == NULL || employees == NULL || *employees == NULL || addstring == NULL) {
-		printf("Method got invalid argument\n");
-		return STATUS_ERROR;
-	}
+    if (header == NULL) {
+        printf("Null header\n");
+        return STATUS_ERROR;
+    }
+    if (employees == NULL) {
+        printf("Null employees\n");
+        return STATUS_ERROR;
+    }
+    if (addstring == NULL) {
+        printf("Null addstring\n");
+        return STATUS_ERROR;
+    }
 
 	char *name = strtok(addstring, ",");
 	if (name == NULL) {
@@ -169,6 +183,7 @@ int add_employee(struct dbheader_t *header, struct employee_t **employees, char 
 	header->filesize = header->filesize + sizeof(struct employee_t);
 
 	*employees = e;
+    printf("Current db has %d users\n", header->count);
 	return STATUS_SUCCESS;
 }
 
