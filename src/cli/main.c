@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdbool.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -34,6 +35,42 @@ int send_hello(int fd) {
     }
 
     printf("Server connected. Protocol v1.\n");
+    return STATUS_SUCCESS;
+}
+
+int send_list_req(int fd) {
+    char buf[4096] = {0};
+
+    dbproto_hdr_t *hdr = buf;
+    hdr->type = MSG_EMPLOYEE_LIST_REQ;
+    hdr->len = 0;
+
+    hdr->type = htonl(hdr->type);
+    hdr->len = htons(hdr->len);
+
+    write(fd, buf, sizeof(dbproto_hdr_t));
+
+    read(fd, buf, sizeof(buf));
+    hdr->type = ntohl(hdr->type);
+    hdr->len = ntohs(hdr->len);
+
+    if (hdr->type == MSG_ERROR) {
+        printf("List request resulted in error\n");
+        close(fd);
+        return STATUS_ERROR;
+    }
+
+    if (hdr->type == MSG_EMPLOYEE_LIST_RESP) {
+        printf("Listing employees [%d]:\n", hdr->len);
+        dbproto_list_resp *employee = (dbproto_list_resp*)&hdr[1];
+        int i = 0;
+        for (; i < hdr->len; i++) {
+            read(fd, employee, sizeof(dbproto_list_resp)); 
+            employee->hours = ntohl(employee->hours);
+            printf("[%d] %s %s %d\n", (i + 1), employee->name, employee->address, employee->hours);
+        } 
+    }
+
     return STATUS_SUCCESS;
 }
 
@@ -72,10 +109,11 @@ int main(int argc, char *argv[]) {
     char *addarg = NULL;
     char *portarg = NULL;
     char *hostarg = NULL;
+    bool list = false;
     unsigned short port = 0;
 
     int c;
-    while ((c = getopt(argc, argv, "p:h:a:")) != -1) {
+    while ((c = getopt(argc, argv, "p:h:a:l")) != -1) {
         switch (c) {
             case 'a':
                 addarg = optarg;
@@ -87,6 +125,9 @@ int main(int argc, char *argv[]) {
             case 'h':
                 hostarg = optarg;
                 break;
+            case 'l':
+                list = true;
+                break;
             case '?':
                 printf("Unknown option -%c\n", c);
             default:
@@ -96,7 +137,7 @@ int main(int argc, char *argv[]) {
 
 
     if (port == 0) {
-        printf("Bad port: %s\n", port);
+        printf("Bad port: %d\n", port);
         return STATUS_ERROR;
     }
     if (hostarg == NULL) {
@@ -129,6 +170,11 @@ int main(int argc, char *argv[]) {
         if (send_create(fd, addarg) != STATUS_SUCCESS) {
             return STATUS_ERROR;
         }
+    }
+
+    if (list) {
+        send_list_req(fd);
+        // TODO handle error or list
     }
 
 	close(fd);

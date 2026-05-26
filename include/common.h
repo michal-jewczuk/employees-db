@@ -41,5 +41,11 @@ typedef struct {
     uint16_t proto;
 } dbproto_add_resp;
 
+typedef struct {
+    char name[256];
+    char address[256];
+    unsigned int hours;
+} dbproto_list_resp;
+
 #endif
 
